@@ -1,85 +1,36 @@
+
 import express from 'express';
 import { fetchMatches } from '../services/provider.js';
-import { fetchStreamsFromSource } from '../services/streamed.js';
+import { fetchStreamsForMatch } from '../services/streamed.js';
 
 const router = express.Router();
 
-router.get('/matches/:id/stream', async (req, res) => {
+router.get('/:id/stream', async (req, res) => {
   try {
+    const { id } = req.params;
     const matches = await fetchMatches();
 
     const match = matches.find(
-      (item) =>
-        String(item.id) ===
-        String(req.params.id)
+      (item) => String(item.id) === String(id)
     );
 
     if (!match) {
       return res.status(404).json({
-        error: 'This event is no longer available.'
+        error: 'Match not found'
       });
     }
 
-    if (!Array.isArray(match.sources) || !match.sources.length) {
-      return res.status(404).json({
-        error: 'No stream source is available for this event.'
-      });
-    }
+    const streams = await fetchStreamsForMatch(id);
 
-    const streams = [];
-
-    for (const source of match.sources) {
-      if (!source?.source || !source?.id) {
-        continue;
-      }
-
-      try {
-        const result =
-          await fetchStreamsFromSource(
-            source.source,
-            source.id
-          );
-
-        if (Array.isArray(result)) {
-          streams.push(...result);
-        } else if (result) {
-          streams.push(result);
-        }
-      } catch (err) {
-        console.error(
-          `Stream source error (${source.source}/${source.id}):`,
-          err.message
-        );
-      }
-    }
-
-    const playable = streams.filter(
-      (stream) =>
-        stream &&
-        typeof stream.embedUrl === 'string' &&
-        stream.embedUrl.trim()
-    );
-
-    if (!playable.length) {
-      return res.status(404).json({
-        error:
-          'No playable stream is currently available for this event.'
-      });
-    }
-
-    res.json({
-      matchId: match.id,
-      streams: playable
+    return res.json({
+      matchId: id,
+      streams
     });
-  } catch (err) {
-    console.error(
-      'Stream route error:',
-      err.message
-    );
+  } catch (error) {
+    console.error('Stream route error:', error.message);
 
-    res.status(500).json({
-      error:
-        'Unable to load the stream right now.'
+    return res.status(500).json({
+      error: 'Unable to retrieve streams'
     });
   }
 });

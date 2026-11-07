@@ -87,7 +87,7 @@ export function getSportConfig(id) {
 }
 
 export function getSportName(id) {
-    return getSportIcon(id).name;
+    return getSportConfig(id).name;
     }
 
 export function getSportIcon(id) {

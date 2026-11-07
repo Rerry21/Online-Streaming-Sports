@@ -1,7 +1,8 @@
+
 import {
-  fetchSports as fetchStreamedSports,
+  fetchSports as fetchPPVSports,
   fetchSportMatches,
-  fetchLiveMatches as fetchStreamedLiveMatches,
+  fetchLiveMatches as fetchPPVLiveMatches,
   fetchPopularMatches
 } from './streamed.js';
 
@@ -65,7 +66,7 @@ export async function fetchSports() {
 
   if (cached) return cached;
 
-  const sports = await fetchStreamedSports();
+  const sports = await fetchPPVSports();
 
   return setCached(
     'sports',
@@ -95,11 +96,7 @@ export async function fetchMatches(sport = null) {
       })
     );
 
-    return setCached(
-      'matches:all',
-      results.flat(),
-      60000
-    );
+    return setCached('matches:all', results.flat(), 60000);
   }
 
   const cacheKey = `matches:${sport}`;
@@ -109,19 +106,11 @@ export async function fetchMatches(sport = null) {
 
   const matches = await fetchSportMatches(sport);
 
-  let result;
+  const result = String(sport).toLowerCase() === 'football'
+    ? await mapFootballMatches(matches)
+    : mapGenericMatches(matches);
 
-  if (String(sport).toLowerCase() === 'football') {
-    result = await mapFootballMatches(matches);
-  } else {
-    result = mapGenericMatches(matches);
-  }
-
-  return setCached(
-    cacheKey,
-    result,
-    30000
-  );
+  return setCached(cacheKey, result, 30000);
 }
 
 export async function fetchLiveMatches(sport = null) {
@@ -130,31 +119,21 @@ export async function fetchLiveMatches(sport = null) {
 
   if (cached) return cached;
 
-  const matches = await fetchStreamedLiveMatches();
+  const matches = await fetchPPVLiveMatches();
 
-  let filtered = matches;
+  const filtered = sport
+    ? matches.filter(
+        (match) =>
+          String(match.category).toLowerCase() ===
+          String(sport).toLowerCase()
+      )
+    : matches;
 
-  if (sport) {
-    filtered = matches.filter(
-      (match) =>
-        String(match.category).toLowerCase() ===
-        String(sport).toLowerCase()
-    );
-  }
+  const result = String(sport || '').toLowerCase() === 'football'
+    ? await mapFootballMatches(filtered, true)
+    : mapGenericMatches(filtered);
 
-  let result;
-
-  if (String(sport || '').toLowerCase() === 'football') {
-    result = await mapFootballMatches(filtered, true);
-  } else {
-    result = mapGenericMatches(filtered);
-  }
-
-  return setCached(
-    cacheKey,
-    result,
-    15000
-  );
+  return setCached(cacheKey, result, 15000);
 }
 
 export async function fetchPopular(sport = null) {
@@ -165,17 +144,9 @@ export async function fetchPopular(sport = null) {
 
   const matches = await fetchPopularMatches(sport);
 
-  let result;
+  const result = String(sport || '').toLowerCase() === 'football'
+    ? await mapFootballMatches(matches)
+    : mapGenericMatches(matches);
 
-  if (String(sport || '').toLowerCase() === 'football') {
-    result = await mapFootballMatches(matches);
-  } else {
-    result = mapGenericMatches(matches);
-  }
-
-  return setCached(
-    cacheKey,
-    result,
-    30000
-  );
+  return setCached(cacheKey, result, 30000);
 }

@@ -1,3 +1,4 @@
+
 import { getSportName } from './sportConfig.js';
 
 function normalizeText(value = '') {
@@ -18,6 +19,30 @@ function getTeams(raw) {
   };
 }
 
+function getEventStatus(raw) {
+  const now = Date.now();
+
+  const start = raw.starts_at
+    ? Number(raw.starts_at) * 1000
+    : null;
+
+  const end = raw.ends_at
+    ? Number(raw.ends_at) * 1000
+    : null;
+
+  if (start && end) {
+    if (now >= start && now <= end) return 'LIVE';
+    if (now > end) return 'FINISHED';
+    if (now < start) return 'SCHEDULED';
+  }
+
+  if (raw.alwaysLive || raw.always_live) {
+    return 'LIVE';
+  }
+
+  return 'SCHEDULED';
+}
+
 export function mapMatch(raw, footballMatch = null) {
   const sport = String(raw.category || '').toLowerCase();
   const teams = getTeams(raw);
@@ -25,10 +50,13 @@ export function mapMatch(raw, footballMatch = null) {
   const footballStatus = footballMatch?.status;
   const footballScore = footballMatch?.score?.fullTime;
 
-  let status = 'SCHEDULED';
+  let status = getEventStatus(raw);
 
   if (footballMatch) {
-    if (footballStatus === 'LIVE' || footballStatus === 'IN_PLAY') {
+    if (
+      footballStatus === 'LIVE' ||
+      footballStatus === 'IN_PLAY'
+    ) {
       status = 'LIVE';
     } else if (
       footballStatus === 'FINISHED' ||
@@ -50,8 +78,8 @@ export function mapMatch(raw, footballMatch = null) {
     id: raw.id,
     sport,
     sportName: getSportName(sport),
-    title: raw.title || [home, away].filter(Boolean).join(' vs '),
-    league: footballMatch?.competition?.name || getSportName(sport),
+    title: raw.title || [home, away].filter(Boolean).join(' vs ') || 'Untitled Event',
+    league: footballMatch?.competition?.name || raw.categoryName || getSportName(sport),
     home,
     away,
     homeBadge: teams.homeBadge,
